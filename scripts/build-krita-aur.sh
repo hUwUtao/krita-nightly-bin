@@ -21,10 +21,10 @@ chmod 440 "/etc/sudoers.d/10-${builder_user}"
 
 sudo -u "${builder_user}" bash -lc '
 set -euo pipefail
-if ! command -v paru >/dev/null 2>&1; then
-  rm -rf "$HOME/paru"
-  git clone https://aur.archlinux.org/paru.git "$HOME/paru"
-  cd "$HOME/paru"
+if ! command -v yay >/dev/null 2>&1; then
+  rm -rf "$HOME/yay"
+  git clone https://aur.archlinux.org/yay.git "$HOME/yay"
+  cd "$HOME/yay"
   makepkg -si --noconfirm --needed
 fi
 '
@@ -58,7 +58,7 @@ for dep in \"\${all_deps[@]}\"; do
 done
 
 if [[ \${#aur_deps[@]} -gt 0 ]]; then
-  paru -S --noconfirm --needed --asdeps \"\${aur_deps[@]}\"
+  yay -S --noconfirm --needed --asdeps \"\${aur_deps[@]}\"
 fi
 
 makepkg -s --noconfirm --needed --cleanbuild
