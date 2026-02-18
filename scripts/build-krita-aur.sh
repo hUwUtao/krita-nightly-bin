@@ -22,9 +22,9 @@ chmod 440 "/etc/sudoers.d/10-${builder_user}"
 sudo -u "${builder_user}" bash -lc '
 set -euo pipefail
 if ! command -v yay >/dev/null 2>&1; then
-  rm -rf "$HOME/yay"
-  git clone https://aur.archlinux.org/yay.git "$HOME/yay"
-  cd "$HOME/yay"
+  rm -rf "$HOME/yay-bin"
+  git clone https://aur.archlinux.org/yay-bin.git "$HOME/yay-bin"
+  cd "$HOME/yay-bin"
   makepkg -si --noconfirm --needed
 fi
 '
