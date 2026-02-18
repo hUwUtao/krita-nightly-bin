@@ -34,7 +34,7 @@ sed -Ei 's/\\<kseexpr-qt6-git\\>/kseexpr/g' PKGBUILD
 makepkg --printsrcinfo > .SRCINFO
 
 mapfile -t all_deps < <(
-  awk -F \" = \" '/^(depends|makedepends) = / { print \$2 }' .SRCINFO |
+  awk -F \" = \" '/^[[:space:]]*(depends|makedepends)(_[^ ]+)? = / { print \$2 }' .SRCINFO |
   sed -E 's/[<>=].*$//' |
   sed '/^$/d' |
   sort -u
@@ -51,10 +51,12 @@ for dep in \"\${all_deps[@]}\"; do
 done
 
 if [[ \${#repo_deps[@]} -gt 0 ]]; then
+  echo \"Installing repo deps (\${#repo_deps[@]}): \${repo_deps[*]}\"
   sudo pacman -S --noconfirm --needed --asdeps \"\${repo_deps[@]}\"
 fi
 
 if [[ \${#aur_deps[@]} -gt 0 ]]; then
+  echo \"Installing AUR deps (\${#aur_deps[@]}): \${aur_deps[*]}\"
   if ! command -v yay >/dev/null 2>&1; then
     rm -rf \"\$HOME/yay-bin\"
     git clone https://aur.archlinux.org/yay-bin.git \"\$HOME/yay-bin\"
