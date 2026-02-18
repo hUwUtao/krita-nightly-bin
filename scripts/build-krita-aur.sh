@@ -19,16 +19,6 @@ fi
 echo "${builder_user} ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/10-${builder_user}"
 chmod 440 "/etc/sudoers.d/10-${builder_user}"
 
-sudo -u "${builder_user}" bash -lc '
-set -euo pipefail
-if ! command -v yay >/dev/null 2>&1; then
-  rm -rf "$HOME/yay-bin"
-  git clone https://aur.archlinux.org/yay-bin.git "$HOME/yay-bin"
-  cd "$HOME/yay-bin"
-  makepkg -si --noconfirm --needed
-fi
-'
-
 sudo -u "${builder_user}" bash -lc "
 set -euo pipefail
 rm -rf \"\$HOME/krita-git\"
@@ -39,6 +29,7 @@ sed -Ei 's/^pkgname=.*/pkgname=krita-nightly-bin/' PKGBUILD
 sed -Ei 's/^pkgdesc=.*/pkgdesc='\''A nightly-built Krita package forked from krita-git.'\''/' PKGBUILD
 sed -Ei 's|^conflicts=.*|conflicts=(\"krita\" \"krita-git\" \"krita-qt6-git\")|' PKGBUILD
 sed -Ei \"s|^source=\\(\\\"git\\+https://invent.kde.org/graphics/krita.git\\\"\\)|source=(\\\"git+https://invent.kde.org/graphics/krita.git#commit=${target_commit}\\\")|\" PKGBUILD
+sed -Ei 's/\\<kseexpr-qt6-git\\>/kseexpr/g' PKGBUILD
 
 makepkg --printsrcinfo > .SRCINFO
 
@@ -49,19 +40,32 @@ mapfile -t all_deps < <(
   sort -u
 )
 
+repo_deps=()
 aur_deps=()
 for dep in \"\${all_deps[@]}\"; do
   if pacman -Si \"\$dep\" >/dev/null 2>&1; then
+    repo_deps+=(\"\$dep\")
     continue
   fi
   aur_deps+=(\"\$dep\")
 done
 
+if [[ \${#repo_deps[@]} -gt 0 ]]; then
+  sudo pacman -S --noconfirm --needed --asdeps \"\${repo_deps[@]}\"
+fi
+
 if [[ \${#aur_deps[@]} -gt 0 ]]; then
+  if ! command -v yay >/dev/null 2>&1; then
+    rm -rf \"\$HOME/yay-bin\"
+    git clone https://aur.archlinux.org/yay-bin.git \"\$HOME/yay-bin\"
+    cd \"\$HOME/yay-bin\"
+    makepkg -si --noconfirm --needed
+    cd \"\$HOME/krita-git\"
+  fi
   yay -S --noconfirm --needed --asdeps \"\${aur_deps[@]}\"
 fi
 
-makepkg -s --noconfirm --needed --cleanbuild
+makepkg --noconfirm --needed --cleanbuild
 "
 
 rm -rf "${artifact_dir}"

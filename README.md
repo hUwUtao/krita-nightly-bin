@@ -15,7 +15,8 @@ Nightly GitHub Actions pipeline that:
   - skips build if this release tag already exists
 - `scripts/build-krita-aur.sh`
   - runs in Arch Linux
-  - installs `yay-bin` (from AUR) to satisfy AUR-only dependencies (for example `kseexpr-qt6-git`)
+  - prefers official Arch repos for all deps, including remapping `kseexpr-qt6-git` to `kseexpr`
+  - falls back to `yay-bin` only if a dependency is truly AUR-only
   - clones `krita-git` AUR packaging and rewrites `pkgname` to `krita-nightly-bin`
   - pins upstream source to the detected commit
   - builds package and emits release notes
