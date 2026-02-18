@@ -1,0 +1,83 @@
+name: Nightly krita-nightly-bin build
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "25 2 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.detect.outputs.should_build }}
+      commit: ${{ steps.detect.outputs.commit }}
+      short_commit: ${{ steps.detect.outputs.short_commit }}
+      tag: ${{ steps.detect.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect upstream changes
+        id: detect
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/detect-upstream-commit.sh
+          scripts/detect-upstream-commit.sh
+
+  build:
+    runs-on: ubuntu-latest
+    needs: detect
+    if: needs.detect.outputs.should_build == 'true'
+    container:
+      image: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build krita-nightly-bin from AUR
+        env:
+          TARGET_COMMIT: ${{ needs.detect.outputs.commit }}
+        run: |
+          chmod +x scripts/build-krita-aur.sh
+          scripts/build-krita-aur.sh "$TARGET_COMMIT"
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: krita-nightly-bin-packages
+          path: /tmp/krita-artifacts
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [detect, build]
+    if: needs.detect.outputs.should_build == 'true'
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: krita-nightly-bin-packages
+          path: artifacts
+
+      - name: Compute release title
+        id: meta
+        run: |
+          pkg_file="$(find artifacts -maxdepth 1 -type f -name 'krita-nightly-bin-*.pkg.tar.zst' | head -n1)"
+          if [[ -z "$pkg_file" ]]; then
+            echo "Could not find built package file." >&2
+            exit 1
+          fi
+          pkg_name="$(basename "$pkg_file")"
+          pkg_version="$(sed -E 's/^krita-nightly-bin-(.+)-x86_64\.pkg\.tar\.zst$/\1/' <<<"$pkg_name")"
+          echo "pkg_version=$pkg_version" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.detect.outputs.tag }}
+          name: krita-nightly-bin ${{ steps.meta.outputs.pkg_version }}
+          body_path: artifacts/RELEASE_NOTES.md
+          files: |
+            artifacts/*.pkg.tar.zst
+            artifacts/*.pkg.tar.zst.sig
