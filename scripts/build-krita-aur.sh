@@ -10,7 +10,7 @@ target_commit="$1"
 builder_user="${BUILDER_USER:-builder}"
 artifact_dir="${ARTIFACT_DIR:-/tmp/krita-artifacts}"
 
-pacman -Syu --noconfirm --needed base-devel git sudo curl jq
+pacman -Syu --noconfirm --needed base-devel git sudo curl jq clang lld llvm
 
 if ! id -u "${builder_user}" >/dev/null 2>&1; then
   useradd -m -G wheel "${builder_user}"
@@ -67,7 +67,25 @@ if [[ \${#aur_deps[@]} -gt 0 ]]; then
   yay -S --noconfirm --needed --asdeps \"\${aur_deps[@]}\"
 fi
 
-makepkg --noconfirm --needed --cleanbuild
+cat > \"\$HOME/.makepkg-llvm-lto.conf\" <<'EOF'
+source /etc/makepkg.conf
+
+# Force LLVM toolchain and full LTO for the target package build.
+CC=clang
+CXX=clang++
+AR=llvm-ar
+NM=llvm-nm
+RANLIB=llvm-ranlib
+LD=ld.lld
+CFLAGS=\"\${CFLAGS} -fuse-ld=lld -flto=full\"
+CXXFLAGS=\"\${CXXFLAGS} -fuse-ld=lld -flto=full\"
+LDFLAGS=\"\${LDFLAGS} -fuse-ld=lld -flto=full\"
+RUSTFLAGS=\"\${RUSTFLAGS} -C linker=clang -C link-arg=-fuse-ld=lld -C lto=fat -C codegen-units=1\"
+options=(\${options[@]/!lto/})
+options+=(lto)
+EOF
+
+makepkg --config \"\$HOME/.makepkg-llvm-lto.conf\" --noconfirm --needed --cleanbuild
 "
 
 rm -rf "${artifact_dir}"

@@ -36,12 +36,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Restore pacman cache
+        id: cache-pacman-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: /var/cache/pacman/pkg
+          key: pacman-cache-archlinux-v1-${{ hashFiles('scripts/build-krita-aur.sh') }}
+          restore-keys: |
+            pacman-cache-archlinux-v1-
+
+      - name: Restore AUR/yay cache
+        id: cache-aur-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            /home/builder/.cache
+            /home/builder/.config/yay
+            /home/builder/yay-bin
+          key: aur-cache-archlinux-v1-${{ hashFiles('scripts/build-krita-aur.sh') }}
+          restore-keys: |
+            aur-cache-archlinux-v1-
+
       - name: Build krita-nightly-bin from AUR
         env:
           TARGET_COMMIT: ${{ needs.detect.outputs.commit }}
         run: |
           chmod +x scripts/build-krita-aur.sh
           scripts/build-krita-aur.sh "$TARGET_COMMIT"
+
+      - name: Save pacman cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /var/cache/pacman/pkg
+          key: ${{ steps.cache-pacman-restore.outputs.cache-primary-key }}
+
+      - name: Save AUR/yay cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            /home/builder/.cache
+            /home/builder/.config/yay
+            /home/builder/yay-bin
+          key: ${{ steps.cache-aur-restore.outputs.cache-primary-key }}
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v4
