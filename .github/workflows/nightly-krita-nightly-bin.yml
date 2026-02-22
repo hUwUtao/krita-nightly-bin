@@ -2,6 +2,7 @@ name: Nightly krita-nightly-bin build
 
 on:
   workflow_dispatch:
+  push:
   schedule:
     - cron: "25 2 * * *"
 

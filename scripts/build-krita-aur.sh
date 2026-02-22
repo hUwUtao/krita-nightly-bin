@@ -16,6 +16,20 @@ if ! id -u "${builder_user}" >/dev/null 2>&1; then
   useradd -m -G wheel "${builder_user}"
 fi
 
+builder_home="$(getent passwd "${builder_user}" | cut -d: -f6)"
+if [[ -z "${builder_home}" ]]; then
+  builder_home="/home/${builder_user}"
+fi
+
+# Cache restore may create these paths as root before the user exists.
+mkdir -p "${builder_home}"
+chown "${builder_user}:${builder_user}" "${builder_home}"
+for cache_path in "${builder_home}/.cache" "${builder_home}/.config" "${builder_home}/yay-bin"; do
+  if [[ -e "${cache_path}" ]]; then
+    chown -R "${builder_user}:${builder_user}" "${cache_path}"
+  fi
+done
+
 echo "${builder_user} ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/10-${builder_user}"
 chmod 440 "/etc/sudoers.d/10-${builder_user}"
 
@@ -90,7 +104,7 @@ makepkg --config \"\$HOME/.makepkg-llvm-lto.conf\" --noconfirm --needed --cleanb
 
 rm -rf "${artifact_dir}"
 mkdir -p "${artifact_dir}"
-cp /home/"${builder_user}"/krita-git/*.pkg.tar.zst* "${artifact_dir}/"
+cp "${builder_home}"/krita-git/*.pkg.tar.zst* "${artifact_dir}/"
 
 mapfile -t pkg_files < <(find "${artifact_dir}" -maxdepth 1 -type f -name 'krita-nightly-bin-*.pkg.tar.zst' -printf '%f\n' | sort)
 if [[ "${#pkg_files[@]}" -eq 0 ]]; then
